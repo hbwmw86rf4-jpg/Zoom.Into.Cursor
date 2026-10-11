@@ -18,7 +18,7 @@ Zoom Into Cursor lives in your menu bar — there's no dock icon, no window to m
 1. Download the project (click **Code → Download ZIP** on GitHub, or `git clone` the repo).
 2. Unzip it if needed, then open the folder.
 3. Drag `LensApp.app` to your **Applications** folder (optional, but recommended), then double-click to open it. The app is signed and notarized by Apple, so it opens normally with no "unidentified developer" warning.
-4. The first time it runs, macOS will ask for **Screen Recording** permission (this is required for the magnifier to capture what's under your cursor). Approve it in the prompt, or enable it manually in **System Settings → Privacy & Security → Screen Recording**, then relaunch the app.
+4. The first time it runs, macOS will ask for **Screen Recording** permission (this is required for the magnifier to capture what's under your cursor). Approve it in the prompt. If you miss it or it hasn't been granted, a small "Permission Needed" panel appears in the bottom-right corner of your screen with a button that opens the right System Settings pane directly — it stays out of the way of the lens itself, since the lens follows your cursor and isn't a good place to put text you need to read.
 5. A small welcome panel appears at the top of your screen walking you through the two keyboard shortcuts — try them, and the panel checks each one off as you go. It closes itself once you've tried both (or click the panel's close button to skip it). You can bring it back anytime from the menu bar icon → **Show Welcome Guide**.
 
 ### Building from source instead
@@ -53,7 +53,7 @@ These work system-wide, even while another app is in focus:
 
 ## Troubleshooting
 
-- **The lens shows solid black** — Screen Recording permission hasn't been granted. macOS deliberately returns a black image instead of an error when this permission is missing, so the app detects this itself and overlays instructions directly in the lens: open **System Settings → Privacy & Security → Screen Recording**, enable it for Zoom Into Cursor, then quit and reopen the app.
+- **The lens shows solid black, or the "Permission Needed" panel keeps appearing** — Screen Recording permission hasn't been granted (or isn't taking effect). Open **System Settings → Privacy & Security → Screen Recording**, make sure Zoom Into Cursor is enabled, then quit and reopen the app. You can re-check anytime from the menu bar icon → **Check Screen Recording Permission**.
 - **I see an old "5KLens" entry in Screen Recording permissions instead of "Zoom Into Cursor"** — this app used to be called 5KLens during development. If you had granted permission to an earlier build, remove that old entry (hover and click **−**) and relaunch the app to get a fresh, correctly-named entry.
 - **Nothing happens when I press the shortcuts** — another app may already be using `Option+L` or `Option+S`. Quit that app, or try the menu bar items instead.
 - **I don't see the menu bar icon** — your menu bar may be too full. Try removing other menu bar icons, or widen your display's visible menu bar area.
