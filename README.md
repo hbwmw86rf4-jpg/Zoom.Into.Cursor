@@ -11,6 +11,7 @@ Zoom Into Cursor lives in your menu bar — there's no dock icon, no window to m
 - Lock/unlock the lens in place so it stops following the cursor and stays where you put it
 - Global keyboard shortcuts that work system-wide, even when another app is focused
 - Menu bar only — no dock icon, no clutter
+- A quick interactive walkthrough on first launch that has you try both shortcuts yourself
 
 ## Installation
 
@@ -18,6 +19,7 @@ Zoom Into Cursor lives in your menu bar — there's no dock icon, no window to m
 2. Unzip it if needed, then open the folder.
 3. Drag `LensApp.app` to your **Applications** folder (optional, but recommended), then double-click to open it. The app is signed and notarized by Apple, so it opens normally with no "unidentified developer" warning.
 4. The first time it runs, macOS will ask for **Screen Recording** permission (this is required for the magnifier to capture what's under your cursor). Approve it in the prompt, or enable it manually in **System Settings → Privacy & Security → Screen Recording**, then relaunch the app.
+5. A small welcome panel appears at the top of your screen walking you through the two keyboard shortcuts — try them, and the panel checks each one off as you go. It closes itself once you've tried both (or click the panel's close button to skip it). You can bring it back anytime from the menu bar icon → **Show Welcome Guide**.
 
 ### Building from source instead
 
