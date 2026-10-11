@@ -2,7 +2,7 @@
 
 Enlarge text or anything else on your screen by pointing your mouse cursor anywhere on screen. Multiple size options. Let the lens follow your cursor, or lock it in place so it stays put while you work underneath it.
 
-Zoom Into Cursor lives in your menu bar — there's no dock icon, no window to manage, and no account to sign in to. It's a free, open-source macOS utility.
+Zoom Into Cursor lives in your menu bar — there's no dock icon, no window to manage, and no account to sign in to. It's a free, open-source macOS utility, signed and notarized by Apple so it opens with no security warnings.
 
 ## Features
 
@@ -16,15 +16,8 @@ Zoom Into Cursor lives in your menu bar — there's no dock icon, no window to m
 
 1. Download the project (click **Code → Download ZIP** on GitHub, or `git clone` the repo).
 2. Unzip it if needed, then open the folder.
-3. Drag `LensApp.app` to your **Applications** folder (optional, but recommended).
-4. Because this app is free and open-source, it isn't signed with a paid Apple Developer certificate. The first time you open it, macOS Gatekeeper will block it with a message like *"Apple could not verify ... is free of malware"*. To open it anyway:
-   - **Right-click (or Control-click) `LensApp.app` → Open → Open**, or
-   - Go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to the LensApp warning, or
-   - Run this once in Terminal: `xattr -cr /Applications/LensApp.app` and then double-click it normally.
-
-   You only need to do this once. After the first approved launch, it opens normally going forward.
-
-5. The first time it runs, macOS will ask for **Screen Recording** permission (this is required for the magnifier to capture what's under your cursor). Approve it in the prompt, or enable it manually in **System Settings → Privacy & Security → Screen Recording**, then relaunch the app.
+3. Drag `LensApp.app` to your **Applications** folder (optional, but recommended), then double-click to open it. The app is signed and notarized by Apple, so it opens normally with no "unidentified developer" warning.
+4. The first time it runs, macOS will ask for **Screen Recording** permission (this is required for the magnifier to capture what's under your cursor). Approve it in the prompt, or enable it manually in **System Settings → Privacy & Security → Screen Recording**, then relaunch the app.
 
 ### Building from source instead
 
@@ -58,8 +51,8 @@ These work system-wide, even while another app is in focus:
 
 ## Troubleshooting
 
-- **"Apple could not verify this app is free of malware"** — expected for an unsigned open-source app. See step 4 under Installation.
-- **The lens shows a black or empty rectangle** — Screen Recording permission hasn't been granted yet. Open **System Settings → Privacy & Security → Screen Recording**, enable it for LensApp, then quit and reopen the app.
+- **The lens shows a black or empty rectangle** — Screen Recording permission hasn't been granted yet. Open **System Settings → Privacy & Security → Screen Recording**, enable it for Zoom Into Cursor, then quit and reopen the app.
+- **I see an old "5KLens" entry in Screen Recording permissions instead of "Zoom Into Cursor"** — this app used to be called 5KLens during development. If you had granted permission to an earlier build, remove that old entry (hover and click **−**) and relaunch the app to get a fresh, correctly-named entry.
 - **Nothing happens when I press the shortcuts** — another app may already be using `Option+L` or `Option+S`. Quit that app, or try the menu bar items instead.
 - **I don't see the menu bar icon** — your menu bar may be too full. Try removing other menu bar icons, or widen your display's visible menu bar area.
 
