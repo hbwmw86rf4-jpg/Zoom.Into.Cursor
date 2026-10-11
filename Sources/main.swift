@@ -38,6 +38,9 @@ final class LensWindow: NSPanel {
     }
     
     private let contentImageView = NSImageView()
+    private let permissionHintLabel = NSTextField(wrappingLabelWithString:
+        "Screen Recording permission is needed.\n\nOpen System Settings → Privacy & Security → Screen Recording, enable it for Zoom Into Cursor, then quit and reopen the app."
+    )
 
     init(size: LensSize) {
         self.lensSize = size
@@ -65,6 +68,24 @@ final class LensWindow: NSPanel {
         contentImageView.autoresizingMask = [.width, .height]
         contentImageView.imageScaling = .scaleAxesIndependently
         contentView.addSubview(contentImageView)
+
+        permissionHintLabel.alignment = .center
+        permissionHintLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        permissionHintLabel.textColor = .white
+        permissionHintLabel.isHidden = true
+        permissionHintLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(permissionHintLabel)
+
+        NSLayoutConstraint.activate([
+            permissionHintLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            permissionHintLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            permissionHintLabel.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 20),
+            permissionHintLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -20)
+        ])
+    }
+
+    func setPermissionHintVisible(_ visible: Bool) {
+        permissionHintLabel.isHidden = !visible
     }
 
     func updateDimensions() {
@@ -298,6 +319,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var displayLinkTimer: Timer?
     private var mouseMonitor: Any?
+    private var permissionCheckTimer: Timer?
 
     private var onboardingPanel: OnboardingPanel?
     private let onboardingCompletedKey = "com.zoomintocursor.onboardingCompleted"
@@ -376,10 +398,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] _ in
             self?.updateLensPositionAndCapture()
         }
-        
+
         displayLinkTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             self?.updateLensPositionAndCapture()
         }
+
+        // CGWindowListCreateImage silently returns a solid black image (not nil) when
+        // Screen Recording access hasn't been granted, so capture success alone can't
+        // tell us anything — check the real permission state directly instead.
+        updatePermissionHint()
+        permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            self?.updatePermissionHint()
+        }
+    }
+
+    private func updatePermissionHint() {
+        lensWindow.setPermissionHintVisible(!CGPreflightScreenCaptureAccess())
     }
 
     private func updateLensPositionAndCapture() {

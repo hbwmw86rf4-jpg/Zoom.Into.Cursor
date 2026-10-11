@@ -53,7 +53,7 @@ These work system-wide, even while another app is in focus:
 
 ## Troubleshooting
 
-- **The lens shows a black or empty rectangle** — Screen Recording permission hasn't been granted yet. Open **System Settings → Privacy & Security → Screen Recording**, enable it for Zoom Into Cursor, then quit and reopen the app.
+- **The lens shows solid black** — Screen Recording permission hasn't been granted. macOS deliberately returns a black image instead of an error when this permission is missing, so the app detects this itself and overlays instructions directly in the lens: open **System Settings → Privacy & Security → Screen Recording**, enable it for Zoom Into Cursor, then quit and reopen the app.
 - **I see an old "5KLens" entry in Screen Recording permissions instead of "Zoom Into Cursor"** — this app used to be called 5KLens during development. If you had granted permission to an earlier build, remove that old entry (hover and click **−**) and relaunch the app to get a fresh, correctly-named entry.
 - **Nothing happens when I press the shortcuts** — another app may already be using `Option+L` or `Option+S`. Quit that app, or try the menu bar items instead.
 - **I don't see the menu bar icon** — your menu bar may be too full. Try removing other menu bar icons, or widen your display's visible menu bar area.
