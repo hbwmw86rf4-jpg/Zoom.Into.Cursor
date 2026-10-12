@@ -55,6 +55,7 @@ These work system-wide, even while another app is in focus:
 
 - **The lens shows solid black, or the "Permission Needed" panel keeps appearing** — Screen Recording permission hasn't been granted (or isn't taking effect). Open **System Settings → Privacy & Security → Screen Recording**, make sure Zoom Into Cursor is enabled, then quit and reopen the app. You can re-check anytime from the menu bar icon → **Check Screen Recording Permission**.
 - **I see an old "5KLens" entry in Screen Recording permissions instead of "Zoom Into Cursor"** — this app used to be called 5KLens during development. If you had granted permission to an earlier build, remove that old entry (hover and click **−**) and relaunch the app to get a fresh, correctly-named entry.
+- **The lens briefly goes blank, or very briefly shows a frozen image from before I locked/slept the Mac, right after I log back in** — macOS automatically stops screen capture while the screen is locked or the Mac is asleep (for privacy) and doesn't resume it on its own. The app detects this and reconnects automatically within a second or so of waking or unlocking; if it doesn't recover, quit and reopen the app.
 - **Nothing happens when I press the shortcuts** — another app may already be using `Option+L` or `Option+S`. Quit that app, or try the menu bar items instead.
 - **I don't see the menu bar icon** — your menu bar may be too full. Try removing other menu bar icons, or widen your display's visible menu bar area.
 

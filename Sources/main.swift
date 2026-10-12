@@ -90,6 +90,10 @@ final class LensWindow: NSPanel {
         contentImageView.image = NSImage(cgImage: image, size: self.frame.size)
     }
 
+    func clearImage() {
+        contentImageView.image = nil
+    }
+
     func moveTo(mousePoint: NSPoint) {
         guard !isPinned else { return }
         // Direct origin placement without safe area clamping
@@ -113,12 +117,53 @@ final class ScreenCaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate {
     private var latestFrames: [CGDirectDisplayID: CGImage] = [:]
     private var displayIDsByStream: [ObjectIdentifier: CGDirectDisplayID] = [:]
     private var activeStreams: [SCStream] = []
+    private var excludedWindowID: CGWindowID?
+    private var didObserveWakeNotifications = false
 
     func start(excludingWindowID: CGWindowID) {
+        excludedWindowID = excludingWindowID
+        observeWakeNotificationsIfNeeded()
+        beginCapture()
+    }
+
+    // The system silently stops ScreenCaptureKit streams across sleep and the
+    // lock screen (for privacy) and never resumes them on its own, which left
+    // the lens frozen on a stale pre-lock frame after logging back in. Detect
+    // wake/unlock ourselves and rebuild capture from scratch when they happen.
+    private func observeWakeNotificationsIfNeeded() {
+        guard !didObserveWakeNotifications else { return }
+        didObserveWakeNotifications = true
+
+        let center = NSWorkspace.shared.notificationCenter
+        let restart: (Notification) -> Void = { [weak self] _ in
+            self?.restartCapture()
+        }
+        center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: restart)
+        center.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main, using: restart)
+        center.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: .main, using: restart)
+    }
+
+    private func restartCapture() {
+        for stream in activeStreams {
+            stream.stopCapture()
+        }
+        activeStreams.removeAll()
+        displayIDsByStream.removeAll()
+
+        frameLock.lock()
+        latestFrames.removeAll()
+        frameLock.unlock()
+
+        beginCapture()
+    }
+
+    private func beginCapture() {
+        guard let excludedWindowID else { return }
+
         Task {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                let excludedWindows = content.windows.filter { $0.windowID == excludingWindowID }
+                let excludedWindows = content.windows.filter { $0.windowID == excludedWindowID }
 
                 for display in content.displays {
                     let filter = SCContentFilter(display: display, excludingWindows: excludedWindows)
@@ -166,6 +211,12 @@ final class ScreenCaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate {
         frameLock.lock()
         latestFrames[displayID] = cgImage
         frameLock.unlock()
+    }
+
+    func stream(_ stream: SCStream, didStopWithError error: Error) {
+        DispatchQueue.main.async { [weak self] in
+            self?.restartCapture()
+        }
     }
 
     func captureScreenUnderCursor(mouseLocation: NSPoint, lensSize: CGSize) -> CGImage? {
@@ -536,6 +587,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         lensWindow = LensWindow(size: .huge)
         lensWindow.orderFrontRegardless()
         captureEngine.start(excludingWindowID: CGWindowID(lensWindow.windowNumber))
+
+        // Capture itself restarts after sleep/lock (see ScreenCaptureEngine), but that
+        // takes a moment, and in the meantime the lens would otherwise keep showing
+        // whatever frame it had right before locking. Clear it so that gap reads as
+        // "reconnecting" rather than a frozen, stale screenshot.
+        let center = NSWorkspace.shared.notificationCenter
+        let clearStaleImage: (Notification) -> Void = { [weak self] _ in
+            self?.lensWindow.clearImage()
+        }
+        center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: clearStaleImage)
+        center.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main, using: clearStaleImage)
+        center.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: .main, using: clearStaleImage)
     }
 
     private func startTracking() {
