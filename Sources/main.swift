@@ -120,10 +120,15 @@ final class ScreenCaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate {
     private var excludedWindowID: CGWindowID?
     private var didObserveWakeNotifications = false
 
+    // Bumped on every restart so that delayed work and in-flight setup from an
+    // earlier attempt can tell they're stale and bail out instead of racing.
+    private var generation = 0
+    private var retryAttempts = 0
+
     func start(excludingWindowID: CGWindowID) {
         excludedWindowID = excludingWindowID
         observeWakeNotificationsIfNeeded()
-        beginCapture()
+        scheduleCapture(after: 0)
     }
 
     // The system silently stops ScreenCaptureKit streams across sleep and the
@@ -143,26 +148,70 @@ final class ScreenCaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate {
         center.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: .main, using: restart)
     }
 
-    private func restartCapture() {
-        for stream in activeStreams {
-            stream.stopCapture()
-        }
+    // Right after wake the display often isn't ready yet, so an immediate
+    // restart can fail or race with the system's own stream-stopped callback.
+    // Wait a beat, and let beginCapture keep retrying until frames arrive.
+    private func restartCapture(after delay: TimeInterval = 1.5) {
+        generation += 1
+        retryAttempts = 0
+        tearDownStreams()
+        scheduleCapture(after: delay)
+    }
+
+    private func tearDownStreams() {
+        frameLock.lock()
+        let streams = activeStreams
         activeStreams.removeAll()
         displayIDsByStream.removeAll()
-
-        frameLock.lock()
         latestFrames.removeAll()
         frameLock.unlock()
 
-        beginCapture()
+        for stream in streams {
+            stream.stopCapture()
+        }
     }
 
-    private func beginCapture() {
+    private func scheduleCapture(after delay: TimeInterval) {
+        let attemptGeneration = generation
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, attemptGeneration == self.generation else { return }
+            self.beginCapture(generation: attemptGeneration)
+        }
+    }
+
+    private func retryCapture(afterFailureIn failedGeneration: Int) {
+        guard failedGeneration == generation else { return }
+        generation += 1
+        retryAttempts += 1
+        tearDownStreams()
+        scheduleCapture(after: min(Double(retryAttempts), 5))
+    }
+
+    // A freshly started stream delivers its first frame right away, so no
+    // frames after a couple of seconds means this attempt silently failed.
+    private func verifyFramesArrive(generation attemptGeneration: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self, attemptGeneration == self.generation else { return }
+
+            self.frameLock.lock()
+            let hasFrames = !self.latestFrames.isEmpty
+            self.frameLock.unlock()
+
+            if hasFrames {
+                self.retryAttempts = 0
+            } else {
+                self.retryCapture(afterFailureIn: attemptGeneration)
+            }
+        }
+    }
+
+    private func beginCapture(generation attemptGeneration: Int) {
         guard let excludedWindowID else { return }
 
-        Task {
+        Task { @MainActor in
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                guard attemptGeneration == generation else { return }
                 let excludedWindows = content.windows.filter { $0.windowID == excludedWindowID }
 
                 for display in content.displays {
@@ -178,16 +227,27 @@ final class ScreenCaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate {
 
                     let stream = SCStream(filter: filter, configuration: config, delegate: self)
                     try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: DispatchQueue(label: "com.zoomintocursor.capture"))
+                    frameLock.lock()
+                    displayIDsByStream[ObjectIdentifier(stream)] = display.displayID
+                    frameLock.unlock()
+
                     try await stream.startCapture()
 
-                    displayIDsByStream[ObjectIdentifier(stream)] = display.displayID
+                    guard attemptGeneration == generation else {
+                        try? await stream.stopCapture()
+                        return
+                    }
+                    frameLock.lock()
                     activeStreams.append(stream)
+                    frameLock.unlock()
                 }
+
+                verifyFramesArrive(generation: attemptGeneration)
             } catch {
-                // Screen Recording permission missing, or capture unavailable.
-                // The permission hint panel already surfaces this separately
-                // via CGPreflightScreenCaptureAccess, so there's nothing more
-                // to report here — the lens just has no frames to show.
+                // Permission missing, or the display isn't ready yet (common right
+                // after wake). Keep retrying with backoff; the permission hint panel
+                // separately tells the user if access is what's missing.
+                retryCapture(afterFailureIn: attemptGeneration)
             }
         }
     }
@@ -200,22 +260,34 @@ final class ScreenCaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .screen,
-              let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
-              let displayID = displayIDsByStream[ObjectIdentifier(stream)] else { return }
+        guard type == .screen, let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        frameLock.lock()
+        let displayID = displayIDsByStream[ObjectIdentifier(stream)]
+        frameLock.unlock()
+        // Streams we've torn down are removed from the map, so late frames from them are dropped.
+        guard let displayID else { return }
 
         var cgImage: CGImage?
         VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &cgImage)
         guard let cgImage else { return }
 
         frameLock.lock()
-        latestFrames[displayID] = cgImage
+        if displayIDsByStream[ObjectIdentifier(stream)] != nil {
+            latestFrames[displayID] = cgImage
+        }
         frameLock.unlock()
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         DispatchQueue.main.async { [weak self] in
-            self?.restartCapture()
+            guard let self else { return }
+            self.frameLock.lock()
+            let isCurrent = self.displayIDsByStream[ObjectIdentifier(stream)] != nil
+            self.frameLock.unlock()
+            // Ignore stop callbacks from streams we already tore down ourselves.
+            guard isCurrent else { return }
+            self.restartCapture(after: 1)
         }
     }
 
